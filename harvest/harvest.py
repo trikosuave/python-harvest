@@ -1,8 +1,10 @@
 import json
+from base64 import b64encode as enc64
+from urlparse import urlparse
+
 import requests
 from requests_oauthlib import OAuth2Session
-from urlparse import urlparse
-from base64   import b64encode as enc64
+
 
 HARVEST_STATUS_URL = 'http://www.harveststatus.com/api/v2/status.json'
 
@@ -12,12 +14,13 @@ class HarvestError(Exception):
 
 
 class Harvest(object):
-    def __init__(self, uri, email=None, password=None, refresh_token=None, client_id=None, token=None, put_auth_in_header=True):
+    def __init__(self, uri, email=None, password=None, refresh_token=None,
+                 client_id=None, token=None, put_auth_in_header=True):
         self.__uri = uri.rstrip('/')
         parsed = urlparse(uri)
         if not (parsed.scheme and parsed.netloc):
             raise HarvestError('Invalid harvest uri "{0}".'.format(uri))
-            
+
         if refresh_token:
             self.__headers = {
                 "Content-Type": 'application/x-www-form-urlencoded',
@@ -25,20 +28,21 @@ class Harvest(object):
             }
         else:
             self.__headers = {
-                'Content-Type'  : 'application/json',
-                'Accept'        : 'application/json',
-                'User-Agent'    : 'Mozilla/5.0',  # 'TimeTracker for Linux' -- ++ << >>
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'User-Agent': 'Mozilla/5.0',  # 'TimeTracker for Linux'
             }
         if email and password:
-            self.__auth     = 'Basic'
-            self.__email    = email.strip()
+            self.__auth = 'Basic'
+            self.__email = email.strip()
             self.__password = password
             if put_auth_in_header:
-                self.__headers['Authorization'] = 'Basic {0}'.format(enc64('{self.email}:{self.password}'.format(self=self)))
+                self.__headers['Authorization'] = 'Basic {0}'.format(
+                    enc64('{self.email}:{self.password}'.format(self=self)))
         elif client_id and token:
-            self.__auth         = 'OAuth2'
-            self.__client_id    = client_id
-            self.__token        = token
+            self.__auth = 'OAuth2'
+            self.__client_id = client_id
+            self.__token = token
 
     @property
     def uri(self):
@@ -68,14 +72,12 @@ class Harvest(object):
     def status(self):
         return status()
 
-    ## Accounts
-
+    # Accounts
     @property
     def who_am_i(self):
         return self._get('/account/who_am_i')
 
-    ## Client Contacts
-
+    # Client Contacts
     def contacts(self, updated_since=None):
         url = '/contacts'
         if updated_since is not None:
@@ -86,8 +88,8 @@ class Harvest(object):
         return self._get('/contacts/{0}'.format(contact_id))
 
     def create_contact(self, new_contact_id, fname, lname, **kwargs):
-        url  = '/contacts/{0}'.format(new_contact_id)
-        kwargs.update({'first-name':fname, 'last-name':lname})
+        url = '/contacts/{0}'.format(new_contact_id)
+        kwargs.update({'first-name': fname, 'last-name': lname})
         return self._post(url, data=kwargs)
 
     def client_contacts(self, client_id, updated_since=None):
@@ -103,8 +105,7 @@ class Harvest(object):
     def delete_contact(self, contact_id):
         return self._delete('/contacts/{0}'.format(contact_id))
 
-    ## Clients
-
+    # Clients
     def clients(self, updated_since=None):
         url = '/clients'
         if updated_since is not None:
@@ -129,9 +130,7 @@ class Harvest(object):
     def delete_client(self, client_id):
         return self._delete('/clients/{0}'.format(client_id))
 
-
-     ## People
-
+    # People
     def people(self):
         url = '/people'
         return self._get(url)
@@ -140,17 +139,17 @@ class Harvest(object):
         return self._get('/people/{0}'.format(person_id))
 
     def toggle_person_active(self, client_id):
-        return self._get('/people/{0}/toggle'.format(people_id))
+        return self._get('/people/{0}/toggle'.format(client_id))
 
     def delete_person(self, client_id):
-        return self._delete('/people/{0}'.format(person_id))
+        return self._delete('/people/{0}'.format(client_id))
 
-    ## Projects
-
+    # Projects
     def projects(self, client=None):
         if client:
             # You can filter by client_id and updated_since.
-            # For example to show only the projects belonging to client with the id 23445.
+            # For example, to show only the projects belonging to
+            # client with the id 23445:
             # GET /projects?client=23445
             return self._get('/projects?client={0}'.format(client))
         return self._get('/projects')
@@ -170,7 +169,8 @@ class Harvest(object):
         return self._get('/projects/{0}'.format(project_id))
 
     def create_project(self, **kwargs):
-        # Example: client.create_project(project={"name": title, "client_id": client_id})
+        # Example: client.create_project(
+        #              project={"name": title, "client_id": client_id})
         return self._post('/projects', data=kwargs)
 
     def update_project(self, project_id, **kwargs):
@@ -183,8 +183,7 @@ class Harvest(object):
     def delete_project(self, project_id):
         return self._delete('/projects/{0}'.format(project_id))
 
-    ## Tasks
-
+    # Tasks
     def tasks(self, updated_since=None):
         # /tasks?updated_since=2010-09-25+18%3A30
         if updated_since:
@@ -207,16 +206,17 @@ class Harvest(object):
 
     def delete_task(self, tasks_id):
         # ARCHIVE OR DELETE EXISTING TASK
-        # Returned if task does not have any hours associated - task will be deleted.
-        # Returned if task is not removable - task will be archived.
+        # Returned if task does not have any hours associated:
+        # Task will be deleted.
+        # Returned if task is not removable:
+        # Task will be archived.
         return self._delete('/tasks/{0}'.format(tasks_id))
 
     def activate_task(self, tasks_id):
         # ACTIVATE EXISTING ARCHIVED TASK
         return self._post('/tasks/{0}/activate'.format(tasks_id))
 
-    ## Task Assignment: Assigning tasks to projects
-
+    # Task Assignments
     def get_all_tasks_from_project(self, project_id):
         # GET ALL TASKS ASSIGNED TO A GIVEN PROJECT
         # /projects/#{project_id}/task_assignments
@@ -225,59 +225,72 @@ class Harvest(object):
     def get_one_task_assigment(self, project_id, task_id):
         # GET ONE TASK ASSIGNMENT
         # GET /projects/#{project_id}/task_assignments/#{task_assignment_id}
-        return self._get('/projects/{0}/task_assignments/{1}'.format(project_id, task_id))
+        return self._get('/projects/{0}/task_assignments/{1}'.format(
+            project_id, task_id))
 
     def assign_task_to_project(self, project_id, **kwargs):
         # ASSIGN A TASK TO A PROJECT
         # POST /projects/#{project_id}/task_assignments
-        return self._post('/projects/{0}/task_assignments/'.format(project_id), kwargs)
+        return self._post('/projects/{0}/task_assignments/'.format(
+            project_id), kwargs)
 
     def create_task_to_project(self, project_id, **kwargs):
         # CREATE A NEW TASK AND ASSIGN IT TO A PROJECT
         # POST /projects/#{project_id}/task_assignments/add_with_create_new_task
-        return self._post('/projects/{0}/task_assignments/add_with_create_new_task'.format(project_id), kwargs)
+        return self._post(
+            '/projects/{0}/task_assignments/add_with_create_new_task'.format(
+                project_id), kwargs)
 
     def remove_task_from_project(self, project_id, task_id):
         # REMOVING A TASK FROM A PROJECT
         # DELETE /projects/#{project_id}/task_assignments/#{task_assignment_id}
-        return self._delete('/projects/{0}/task_assignments/{1}'.format(project_id, task_id))
+        return self._delete('/projects/{0}/task_assignments/{1}'.format(
+            project_id, task_id))
 
     def change_task_from_project(self, project_id, task_id, data, **kwargs):
         # CHANGING A TASK FOR A PROJECT
         # PUT /projects/#{project_id}/task_assignments/#{task_assignment_id}
         kwargs.update({'task-assignment': data})
-        return self._put('/projects/{0}/task_assignments/{1}'.format(project_id, task_id), kwargs)
+        return self._put('/projects/{0}/task_assignments/{1}'.format(
+            project_id, task_id), kwargs)
 
-    ## User Assignment: Assigning users to projects
+    # User Assignments
+    def get_users_assigned_to_project(self, project_id):
+        # GET USERS ASSIGNED TO PROJECT
+        # GET /projects/#{project_id}/user_assignments
+        return self._get('/projects/{0}/user_assignments'.format(project_id))
 
     def assign_user_to_project(self, project_id, user_id):
         # ASSIGN A USER TO A PROJECT
         # POST /projects/#{project_id}/user_assignments
-        return self._post('/projects/{0}/user_assignments'.format(project_id), {"user": {"id": user_id}})
+        return self._post('/projects/{0}/user_assignments'.format(
+            project_id), {"user": {"id": user_id}})
 
-    ## Expense Categories
-
+    # Expense Categories
     @property
     def expense_categories(self):
         return self._get('/expense_categories')
 
     def create_expense_category(self, new_expense_category_id, **kwargs):
-        return self._post('/expense_categories/{0}'.format(new_expense_category_id), data=kwargs)
+        return self._post('/expense_categories/{0}'.format(
+            new_expense_category_id), data=kwargs)
 
     def update_expense_category(self, expense_category_id, **kwargs):
-        return self._put('/expense_categories/{0}'.format(expense_category_id), data=kwargs)
+        return self._put('/expense_categories/{0}'.format(
+            expense_category_id), data=kwargs)
 
     def get_expense_category(self, expense_category_id):
         return self._get('/expense_categories/{0}'.format(expense_category_id))
 
     def delete_expense_category(self, expense_category_id):
-        return self._delete('/expense_categories/{0}'.format(expense_category_id))
+        return self._delete('/expense_categories/{0}'.format(
+            expense_category_id))
 
     def toggle_expense_category_active(self, expense_category_id):
-        return self._get('/expense_categories/{0}/toggle'.format(expense_category_id))
+        return self._get('/expense_categories/{0}/toggle'.format(
+            expense_category_id))
 
-    ## Time Tracking
-
+    # Time Tracking
     @property
     def today(self):
         return self._get('/daily')
@@ -306,19 +319,7 @@ class Harvest(object):
     def update(self, entry_id, data):
         return self._post('/daily/update/{0}'.format(entry_id), data)
 
-    def _get(self, path='/', data=None):
-        return self._request('GET', path, data)
-
-    def _post(self, path='/', data=None):
-        return self._request('POST', path, data)
-
-    def _put(self, path='/', data=None):
-        return self._request('PUT', path, data)
-
-    def _delete(self, path='/', data=None):
-        return self._request('DELETE', path, data)
-
-    # users
+    # Manage Users
     @property
     def users(self):
         return self._get('/people')
@@ -327,22 +328,24 @@ class Harvest(object):
         return self._get('/people/{0}'.format(user_id))
 
     def user_hours(self, user_id, start, stop):
-        return self._get('/people/{0}/entries?from={1}&to={2}'.format(user_id,start,stop))
+        return self._get('/people/{0}/entries?from={1}&to={2}'.format(
+            user_id, start, stop))
 
     def _request(self, method='GET', path='/', data=None):
         url = '{self.uri}{path}'.format(self=self, path=path)
         kwargs = {
-            'method'  : method,
-            'url'     : '{self.uri}{path}'.format(self=self, path=path),
-            'headers' : self.__headers,
-            'data'   : json.dumps(data),
+            'method': method,
+            'url': url,
+            'headers': self.__headers,
+            'data': json.dumps(data),
         }
         if self.auth == 'Basic':
             requestor = requests
             if 'Authorization' not in self.__headers:
                 kwargs['auth'] = (self.email, self.password)
         elif self.auth == 'OAuth2':
-            requestor = OAuth2Session(client_id=self.client_id, token=self.token)
+            requestor = OAuth2Session(client_id=self.client_id,
+                                      token=self.token)
 
         try:
             resp = requestor.request(**kwargs)
@@ -354,6 +357,19 @@ class Harvest(object):
             return resp
         except Exception, e:
             raise HarvestError(e)
+
+    # HTTP Methods
+    def _get(self, path='/', data=None):
+        return self._request('GET', path, data)
+
+    def _post(self, path='/', data=None):
+        return self._request('POST', path, data)
+
+    def _put(self, path='/', data=None):
+        return self._request('PUT', path, data)
+
+    def _delete(self, path='/', data=None):
+        return self._request('DELETE', path, data)
 
 
 def status():
